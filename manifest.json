@@ -1,0 +1,10 @@
+{
+  "domain": "ngenic",
+  "name": "Ngenic Tune",
+  "documentation": "https://github.com/sfalkman/ngenicpy",
+  "dependencies": [],
+  "codeowners": ["@sfalkman"],
+  "requirements": [
+    "ngenicpy==0.1.0"
+  ]
+}
