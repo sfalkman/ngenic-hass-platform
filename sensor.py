@@ -2,6 +2,7 @@ import logging
 
 from ngenicpy import Ngenic
 from ngenicpy.models.node import NodeType
+from ngenicpy.models.measurement import MeasurementType
 
 from homeassistant.const import (
     CONF_TOKEN,
@@ -22,46 +23,38 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 
     devices = []
 
-    tunes = ngenic.tunes()
-    for tune in tunes:
+    for tune in ngenic.tunes():
         rooms = tune.rooms()
-        nodes = tune.nodes()
 
-        for node in nodes:
-            # TODO: make _get_measurement_types public
-            # TODO: Make struct out of temperature_C/humidity_relative_percent etc
-            measurement_types = node._get_measurement_types()
+        for node in tune.nodes():
+            node_name = "Ngenic %s" % node.get_type().name.lower()
 
-            node_name = "Ngenic %s" % node.getType().name.lower()
-
-            if node.getType() == NodeType.SENSOR:
+            if node.get_type() == NodeType.SENSOR:
                 # If this sensor is connected to a room
                 # we'll use the room name as the sensor name
                 for room in rooms:
                     if room["nodeUuid"] == node.uuid():
                         node_name = room["name"]
 
-            for measurement_type in measurement_types:
-                _LOGGER.info("Adding Ngenic sensor with name %s and measurement of %s" % (node_name, measurement_type))
-
-                if(measurement_type == "temperature_C"):
-                    devices.append(
-                        NgenicTempSensor(
-                            ngenic,
-                            node,
-                            node_name,
-                            "temperature_C"
-                        )
+            if MeasurementType.TEMPERATURE in node.measurement_types():
+                devices.append(
+                    NgenicTempSensor(
+                        ngenic,
+                        node,
+                        node_name,
+                        MeasurementType.TEMPERATURE
                     )
-                elif(measurement_type == "humidity_relative_percent"):
-                    devices.append(
-                        NgenicHumiditySensor(
-                            ngenic,
-                            node,
-                            node_name,
-                            "humidity_relative_percent"
-                        )
+                )
+            
+            if MeasurementType.HUMIDITY in node.measurement_types():
+                devices.append(
+                    NgenicHumiditySensor(
+                        ngenic,
+                        node,
+                        node_name,
+                        MeasurementType.HUMIDITY
                     )
+                )
 
     add_entities(devices)
 
@@ -88,7 +81,7 @@ class NgenicSensor(Entity):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
-        current = self._node.latest_measurement(self._measurement_type)
+        current = self._node.measurement(self._measurement_type)
         self._state = round(current["value"], 1)
 
 class NgenicTempSensor(NgenicSensor):
