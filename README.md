@@ -6,8 +6,4 @@ This platform adds sensors for Ngenic Tune nodes that report temperature and hum
 An API token may be obtained here: https://developer.ngenic.se/
 
 ## Configuration
-```yaml
-sensors:
-  platform: ngenic
-  token: "YOUR-API-TOKEN"
-```
+Configure via UI: Configuration > Integrations

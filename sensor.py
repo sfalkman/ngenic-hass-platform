@@ -5,21 +5,28 @@ from ngenicpy.models.node import NodeType
 from ngenicpy.models.measurement import MeasurementType
 
 from homeassistant.const import (
-    CONF_TOKEN,
     TEMP_CELSIUS,
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_HUMIDITY
 )
 from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.event import async_track_time_interval
+
+from .const import (
+    DOMAIN,
+    DATA_CLIENT,
+    SCAN_INTERVAL
+)
 
 _LOGGER = logging.getLogger(__name__)
 
-def setup_platform(hass, config, add_entities, discovery_info=None):
-    """Set up the sensor platform."""
+#async def async_setup_platform(hass, config, add_entities, discovery_info=None):
+#    pass
 
-    ngenic = Ngenic(
-        token=config[CONF_TOKEN]
-    )
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    """Set up the sensor platform."""
+    
+    ngenic = hass.data[DOMAIN][DATA_CLIENT]
 
     devices = []
 
@@ -36,31 +43,42 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
                     if room["nodeUuid"] == node.uuid():
                         node_name = room["name"]
 
+            sensor = None
             if MeasurementType.TEMPERATURE in node.measurement_types():
-                devices.append(
-                    NgenicTempSensor(
-                        ngenic,
-                        node,
-                        node_name,
-                        MeasurementType.TEMPERATURE
-                    )
-                )
+                sensor = NgenicTempSensor(
+                    hass,
+                    ngenic,
+                    node,
+                    node_name,
+                    MeasurementType.TEMPERATURE
+                )            
             
             if MeasurementType.HUMIDITY in node.measurement_types():
-                devices.append(
-                    NgenicHumiditySensor(
-                        ngenic,
-                        node,
-                        node_name,
-                        MeasurementType.HUMIDITY
-                    )
+                sensor = NgenicHumiditySensor(
+                    hass,
+                    ngenic,
+                    node,
+                    node_name,
+                    MeasurementType.HUMIDITY
                 )
 
-    add_entities(devices)
+            if sensor:
+                # Initial update
+                await sensor._async_update()
+
+                # Setup update interval
+                async_track_time_interval(hass, sensor._async_update, SCAN_INTERVAL)
+
+                devices.append(sensor)
+
+
+    async_add_entities(devices)
 
 class NgenicSensor(Entity):
-
-    def __init__(self, ngenic, node, name, measurement_type):
+    """Representation of an Ngenic Sensor"""
+    
+    def __init__(self, hass, ngenic, node, name, measurement_type):
+        self._hass = hass
         self._state = None
         self._ngenic = ngenic
         self._name = name
@@ -77,7 +95,20 @@ class NgenicSensor(Entity):
         """Return the state of the sensor."""
         return self._state
 
-    def update(self):
+    @property
+    def unique_id(self):
+        return "%s-%s-%s" % (self._node.uuid(), self._measurement_type.name, "sensor")
+
+    @property
+    def should_poll(self):
+        """Don't poll, we got our own update tracking"""
+        return False
+
+    async def _async_update(self, event_time=None):
+        """Execute the update asynchronous"""
+        await self._hass.async_add_executor_job(self._update)
+
+    def _update(self, event_time=None):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """

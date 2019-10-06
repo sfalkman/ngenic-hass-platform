@@ -1,10 +1,11 @@
 {
-  "domain": "ngenic",
-  "name": "Ngenic Tune",
-  "documentation": "https://github.com/sfalkman/ngenic-hass-platform",
-  "dependencies": [],
-  "codeowners": ["@sfalkman"],
-  "requirements": [
-    "ngenicpy==0.1.1"
-  ]
+    "domain": "ngenic",
+    "name": "Ngenic Tune",
+    "config_flow": true,
+    "documentation": "https://github.com/sfalkman/ngenic-hass-platform",
+    "dependencies": [],
+    "codeowners": ["@sfalkman"],
+    "requirements": [
+        "ngenicpy==0.1.1"
+    ]
 }
