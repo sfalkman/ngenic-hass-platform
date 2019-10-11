@@ -42,7 +42,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # get the room node
         control_node = tune.node(control_room["nodeUuid"])
 
-        sensor = NgenicTune(
+        device = NgenicTune(
             hass,
             ngenic,
             tune,
@@ -51,12 +51,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
         )
 
         # Initial update
-        await sensor._async_update()
+        await device._async_update()
 
         # Setup update interval
-        async_track_time_interval(hass, sensor._async_update, SCAN_INTERVAL)
+        async_track_time_interval(hass, device._async_update, SCAN_INTERVAL)
         
-        devices.append(sensor)
+        devices.append(device)
 
     async_add_entities(devices)
 

@@ -25,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the sensor platform."""
-    
+
     ngenic = hass.data[DOMAIN][DATA_CLIENT]
 
     devices = []
@@ -43,34 +43,34 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     if room["nodeUuid"] == node.uuid():
                         node_name = room["name"]
 
-            sensor = None
             if MeasurementType.TEMPERATURE in node.measurement_types():
-                sensor = NgenicTempSensor(
-                    hass,
-                    ngenic,
-                    node,
-                    node_name,
-                    MeasurementType.TEMPERATURE
+                devices.append(
+                    NgenicTempSensor(
+                        hass,
+                        ngenic,
+                        node,
+                        node_name,
+                        MeasurementType.TEMPERATURE
+                    )
                 )            
             
             if MeasurementType.HUMIDITY in node.measurement_types():
-                sensor = NgenicHumiditySensor(
-                    hass,
-                    ngenic,
-                    node,
-                    node_name,
-                    MeasurementType.HUMIDITY
+                devices.append(
+                    NgenicHumiditySensor(
+                        hass,
+                        ngenic,
+                        node,
+                        node_name,
+                        MeasurementType.HUMIDITY
+                    )
                 )
 
-            if sensor:
-                # Initial update
-                await sensor._async_update()
+    for device in devices:
+        # Initial update
+        await device._async_update()
 
-                # Setup update interval
-                async_track_time_interval(hass, sensor._async_update, SCAN_INTERVAL)
-
-                devices.append(sensor)
-
+        # Setup update interval
+        async_track_time_interval(hass, device._async_update, SCAN_INTERVAL)
 
     async_add_entities(devices)
 
