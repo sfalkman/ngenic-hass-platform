@@ -101,8 +101,10 @@ class NgenicSensor(Entity):
 
     @property
     def should_poll(self):
-        """Don't poll, we got our own update tracking"""
-        return False
+        """Enable polling. We got our own timer for actually refreshing
+        the status, but this will poll the state variable.
+        """
+        return True
 
     async def _async_update(self, event_time=None):
         """Execute the update asynchronous"""
