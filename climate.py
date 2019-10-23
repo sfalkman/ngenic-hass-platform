@@ -5,7 +5,8 @@ from ngenicpy.models.measurement import MeasurementType
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.components.climate import ClimateDevice
 from homeassistant.components.climate.const import (
-    SUPPORT_TARGET_TEMPERATURE
+    SUPPORT_TARGET_TEMPERATURE,
+    HVAC_MODE_HEAT
 )
 from homeassistant.const import (
     TEMP_CELSIUS, 
@@ -106,12 +107,12 @@ class NgenicTune(ClimateDevice):
     @property
     def hvac_mode(self):
         """Must be implemented"""
-        return None
+        return HVAC_MODE_HEAT
 
     @property
     def hvac_modes(self):
         """Must be implemented"""
-        return None
+        return [HVAC_MODE_HEAT]
 
     def set_temperature(self, **kwargs):
         """Set new target temperature."""
