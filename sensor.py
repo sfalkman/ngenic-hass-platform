@@ -7,7 +7,10 @@ from ngenicpy.models.measurement import MeasurementType
 from homeassistant.const import (
     TEMP_CELSIUS,
     DEVICE_CLASS_TEMPERATURE,
-    DEVICE_CLASS_HUMIDITY
+    DEVICE_CLASS_HUMIDITY,
+    DEVICE_CLASS_POWER,
+    POWER_WATT,
+    ENERGY_KILO_WATT_HOUR
 )
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_time_interval
@@ -57,6 +60,28 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             if MeasurementType.HUMIDITY in node.measurement_types():
                 devices.append(
                     NgenicHumiditySensor(
+                        hass,
+                        ngenic,
+                        node,
+                        node_name,
+                        MeasurementType.HUMIDITY
+                    )
+                )
+
+            if MeasurementType.POWER_KW in node.measurement_types():
+                devices.append(
+                    NgenicPowerSensor(
+                        hass,
+                        ngenic,
+                        node,
+                        node_name,
+                        MeasurementType.HUMIDITY
+                    )
+                )
+
+            if MeasurementType.ENERGY_KWH in node.measurement_types():
+                devices.append(
+                    NgenicEnergySensor(
                         hass,
                         ngenic,
                         node,
@@ -134,5 +159,21 @@ class NgenicHumiditySensor(NgenicSensor):
     def unit_of_measurement(self):
         """Return the unit of measurement."""
         return "%"
+
+class NgenicPowerSensor(NgenicSensor):
+    device_class = DEVICE_CLASS_POWER
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return POWER_WATT
+
+class NgenicEnergySensor(NgenicSensor):
+    device_class = DEVICE_CLASS_POWER
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return ENERGY_KILO_WATT_HOUR
 
         
