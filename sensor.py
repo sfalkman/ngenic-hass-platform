@@ -75,7 +75,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
-                        MeasurementType.HUMIDITY
+                        MeasurementType.POWER_KW
                     )
                 )
 
@@ -86,7 +86,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
-                        MeasurementType.HUMIDITY
+                        MeasurementType.ENERGY_KWH
                     )
                 )
 
