@@ -14,6 +14,7 @@ from homeassistant.const import (
 )
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_time_interval
+import homeassistant.util.dt as dt_util
 
 from .const import (
     DOMAIN,
@@ -23,12 +24,13 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+TIME_ZONE = "Z" if str(dt_util.DEFAULT_TIME_ZONE) == "UTC" else " " + str(dt_util.DEFAULT_TIME_ZONE)
+
 #async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 #    pass
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the sensor platform."""
-
     ngenic = hass.data[DOMAIN][DATA_CLIENT]
 
     devices = []
@@ -172,12 +174,14 @@ class NgenicPowerSensor(NgenicSensor):
         """Ask for measurements for a duration.
         This requires some further inputs, so we'll override the _update method.
         """
-        from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat() + "Z"
-        to_dt = datetime.datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).isoformat() + "Z"
+        from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        to_dt = from_dt + datetime.timedelta(days=1)
+        iso_from_dt = from_dt.isoformat() + TIME_ZONE
+        iso_to_dt = to_dt.isoformat() + TIME_ZONE
 
         # using datetime will return a list of measurements
         # we'll use the last item in that list
-        current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
+        current = self._node.measurement(self._measurement_type, iso_from_dt, iso_to_dt, "P1D")
         self._state = round(current[-1]["value"], 1)
 
 class NgenicEnergySensor(NgenicSensor):
@@ -192,12 +196,14 @@ class NgenicEnergySensor(NgenicSensor):
         """Ask for measurements for a duration.
         This requires some further inputs, so we'll override the _update method.
         """
-        from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat() + "Z"
-        to_dt = datetime.datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).isoformat() + "Z"
+        from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        to_dt = from_dt + datetime.timedelta(days=1)
+        iso_from_dt = from_dt.isoformat() + TIME_ZONE
+        iso_to_dt = to_dt.isoformat() + TIME_ZONE
 
         # using datetime will return a list of measurements
         # we'll use the last item in that list
-        current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
+        current = self._node.measurement(self._measurement_type, iso_from_dt, iso_to_dt, "P1D")
         self._state = round(current[-1]["value"], 1)
 
         
