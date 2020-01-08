@@ -1,4 +1,5 @@
 import logging
+import datetime
 
 from ngenicpy import Ngenic
 from ngenicpy.models.node import NodeType
@@ -9,7 +10,6 @@ from homeassistant.const import (
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_HUMIDITY,
     DEVICE_CLASS_POWER,
-    POWER_WATT,
     ENERGY_KILO_WATT_HOUR
 )
 from homeassistant.helpers.entity import Entity
@@ -166,7 +166,19 @@ class NgenicPowerSensor(NgenicSensor):
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement."""
-        return POWER_WATT
+        return "kW"
+
+    def _update(self, event_time=None):
+        """Ask for measurements for a duration.
+        This requires some further inputs, so we'll override the _update method.
+        """
+        from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat() + "Z"
+        to_dt = datetime.datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).isoformat() + "Z"
+
+        # using datetime will return a list of measurements
+        # we'll use the last item in that list
+        current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
+        self._state = round(current[-1]["value"], 1)
 
 class NgenicEnergySensor(NgenicSensor):
     device_class = DEVICE_CLASS_POWER
@@ -175,5 +187,17 @@ class NgenicEnergySensor(NgenicSensor):
     def unit_of_measurement(self):
         """Return the unit of measurement."""
         return ENERGY_KILO_WATT_HOUR
+
+    def _update(self, event_time=None):
+        """Ask for measurements for a duration.
+        This requires some further inputs, so we'll override the _update method.
+        """
+        from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat() + "Z"
+        to_dt = datetime.datetime.now().replace(hour=23, minute=59, second=59, microsecond=0).isoformat() + "Z"
+
+        # using datetime will return a list of measurements
+        # we'll use the last item in that list
+        current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
+        self._state = round(current[-1]["value"], 1)
 
         
