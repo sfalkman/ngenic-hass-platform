@@ -24,10 +24,28 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-TIME_ZONE = "Z" if str(dt_util.DEFAULT_TIME_ZONE) == "UTC" else " " + str(dt_util.DEFAULT_TIME_ZONE)
+TIME_ZONE = "Z" if str(dt_util.DEFAULT_TIME_ZONE) == "UTC" else str(dt_util.DEFAULT_TIME_ZONE)
 
 #async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 #    pass
+
+def get_from_to_datetime(days=1):
+    """Get a period
+    This will return two dates in ISO 8601:2004 format
+    The first date will be at 00:00 today, and the second
+    date will be at 00:00 n days ahead of now.
+
+    Both dates include the time zone name, or `Z` in case of UTC.
+    Including these will allow the API to handle DST correctly. 
+
+    When asking for measurements, the `from` datetime is inclusive
+    and the `to` datetime is exclusive. 
+    """
+    from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    to_dt = from_dt + datetime.timedelta(days=days)
+
+    return (from_dt.isoformat() + " " + TIME_ZONE, 
+            to_dt.isoformat() + " " + TIME_ZONE)
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the sensor platform."""
@@ -174,14 +192,11 @@ class NgenicPowerSensor(NgenicSensor):
         """Ask for measurements for a duration.
         This requires some further inputs, so we'll override the _update method.
         """
-        from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        to_dt = from_dt + datetime.timedelta(days=1)
-        iso_from_dt = from_dt.isoformat() + TIME_ZONE
-        iso_to_dt = to_dt.isoformat() + TIME_ZONE
+        from_dt, to_dt = get_from_to_datetime()
 
         # using datetime will return a list of measurements
         # we'll use the last item in that list
-        current = self._node.measurement(self._measurement_type, iso_from_dt, iso_to_dt, "P1D")
+        current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
         self._state = round(current[-1]["value"], 1)
 
 class NgenicEnergySensor(NgenicSensor):
@@ -196,14 +211,11 @@ class NgenicEnergySensor(NgenicSensor):
         """Ask for measurements for a duration.
         This requires some further inputs, so we'll override the _update method.
         """
-        from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        to_dt = from_dt + datetime.timedelta(days=1)
-        iso_from_dt = from_dt.isoformat() + TIME_ZONE
-        iso_to_dt = to_dt.isoformat() + TIME_ZONE
+        from_dt, to_dt = get_from_to_datetime()
 
         # using datetime will return a list of measurements
         # we'll use the last item in that list
-        current = self._node.measurement(self._measurement_type, iso_from_dt, iso_to_dt, "P1D")
+        current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
         self._state = round(current[-1]["value"], 1)
 
         
