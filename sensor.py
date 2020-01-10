@@ -1,4 +1,5 @@
 import logging
+import datetime
 
 from ngenicpy import Ngenic
 from ngenicpy.models.node import NodeType
@@ -7,10 +8,13 @@ from ngenicpy.models.measurement import MeasurementType
 from homeassistant.const import (
     TEMP_CELSIUS,
     DEVICE_CLASS_TEMPERATURE,
-    DEVICE_CLASS_HUMIDITY
+    DEVICE_CLASS_HUMIDITY,
+    DEVICE_CLASS_POWER,
+    ENERGY_KILO_WATT_HOUR
 )
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_time_interval
+import homeassistant.util.dt as dt_util
 
 from .const import (
     DOMAIN,
@@ -20,12 +24,31 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+TIME_ZONE = "Z" if str(dt_util.DEFAULT_TIME_ZONE) == "UTC" else str(dt_util.DEFAULT_TIME_ZONE)
+
 #async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 #    pass
 
+def get_from_to_datetime(days=1):
+    """Get a period
+    This will return two dates in ISO 8601:2004 format
+    The first date will be at 00:00 today, and the second
+    date will be at 00:00 n days ahead of now.
+
+    Both dates include the time zone name, or `Z` in case of UTC.
+    Including these will allow the API to handle DST correctly. 
+
+    When asking for measurements, the `from` datetime is inclusive
+    and the `to` datetime is exclusive. 
+    """
+    from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    to_dt = from_dt + datetime.timedelta(days=days)
+
+    return (from_dt.isoformat() + " " + TIME_ZONE, 
+            to_dt.isoformat() + " " + TIME_ZONE)
+
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the sensor platform."""
-
     ngenic = hass.data[DOMAIN][DATA_CLIENT]
 
     devices = []
@@ -62,6 +85,28 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         node,
                         node_name,
                         MeasurementType.HUMIDITY
+                    )
+                )
+
+            if MeasurementType.POWER_KW in node.measurement_types():
+                devices.append(
+                    NgenicPowerSensor(
+                        hass,
+                        ngenic,
+                        node,
+                        node_name,
+                        MeasurementType.POWER_KW
+                    )
+                )
+
+            if MeasurementType.ENERGY_KWH in node.measurement_types():
+                devices.append(
+                    NgenicEnergySensor(
+                        hass,
+                        ngenic,
+                        node,
+                        node_name,
+                        MeasurementType.ENERGY_KWH
                     )
                 )
 
@@ -134,5 +179,43 @@ class NgenicHumiditySensor(NgenicSensor):
     def unit_of_measurement(self):
         """Return the unit of measurement."""
         return "%"
+
+class NgenicPowerSensor(NgenicSensor):
+    device_class = DEVICE_CLASS_POWER
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return "kW"
+
+    def _update(self, event_time=None):
+        """Ask for measurements for a duration.
+        This requires some further inputs, so we'll override the _update method.
+        """
+        from_dt, to_dt = get_from_to_datetime()
+
+        # using datetime will return a list of measurements
+        # we'll use the last item in that list
+        current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
+        self._state = round(current[-1]["value"], 1)
+
+class NgenicEnergySensor(NgenicSensor):
+    device_class = DEVICE_CLASS_POWER
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return ENERGY_KILO_WATT_HOUR
+
+    def _update(self, event_time=None):
+        """Ask for measurements for a duration.
+        This requires some further inputs, so we'll override the _update method.
+        """
+        from_dt, to_dt = get_from_to_datetime()
+
+        # using datetime will return a list of measurements
+        # we'll use the last item in that list
+        current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
+        self._state = round(current[-1]["value"], 1)
 
         
