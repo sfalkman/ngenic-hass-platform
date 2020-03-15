@@ -26,6 +26,27 @@ _LOGGER = logging.getLogger(__name__)
 
 TIME_ZONE = "Z" if str(dt_util.DEFAULT_TIME_ZONE) == "UTC" else str(dt_util.DEFAULT_TIME_ZONE)
 
+def get_from_to_datetime_month(months=1):
+    """Get a period
+    This will return two dates in ISO 8601:2004 format
+    The first date will be at 00:00 in the first of this month, and the second
+    date will be at 00:00 in the first day of next month.
+
+    Both dates include the time zone name, or `Z` in case of UTC.
+    Including these will allow the API to handle DST correctly. 
+
+    When asking for measurements, the `from` datetime is inclusive
+    and the `to` datetime is exclusive. 
+    """
+    #to_dt = datetime.datetime.now()
+    from_dt = datetime.datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    to_dt = from_dt + datetime.timedelta(days=31)
+
+    return (from_dt.isoformat() + " " + TIME_ZONE, 
+            to_dt.isoformat() + " " + TIME_ZONE)
+
+
+
 #async def async_setup_platform(hass, config, add_entities, discovery_info=None):
 #    pass
 
@@ -64,7 +85,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 # we'll use the room name as the sensor name
                 for room in rooms:
                     if room["nodeUuid"] == node.uuid():
-                        node_name = room["name"]
+                        node_name = "%s %s" % (node_name, room["name"])
 
             if MeasurementType.TEMPERATURE in node.measurement_types():
                 devices.append(
@@ -109,6 +130,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         MeasurementType.ENERGY_KWH
                     )
                 )
+                devices.append(
+                    NgenicEnergySensorMonth(
+                        hass,
+                        ngenic,
+                        node,
+                        node_name,
+                        MeasurementType.ENERGY_KWH
+                    )
+                )
+
 
     for device in devices:
         # Initial update
@@ -129,6 +160,7 @@ class NgenicSensor(Entity):
         self._name = name
         self._node = node
         self._measurement_type = measurement_type
+
 
     @property
     def name(self):
@@ -188,16 +220,9 @@ class NgenicPowerSensor(NgenicSensor):
         """Return the unit of measurement."""
         return "kW"
 
-    def _update(self, event_time=None):
-        """Ask for measurements for a duration.
-        This requires some further inputs, so we'll override the _update method.
-        """
-        from_dt, to_dt = get_from_to_datetime()
 
-        # using datetime will return a list of measurements
-        # we'll use the last item in that list
-        current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
-        self._state = round(current[-1]["value"], 1)
+
+
 
 class NgenicEnergySensor(NgenicSensor):
     device_class = DEVICE_CLASS_POWER
@@ -218,4 +243,37 @@ class NgenicEnergySensor(NgenicSensor):
         current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
         self._state = round(current[-1]["value"], 1)
 
-        
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return "%s %s" % (self._name, "energy")
+
+
+class NgenicEnergySensorMonth(NgenicSensor):
+    device_class = DEVICE_CLASS_POWER
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return ENERGY_KILO_WATT_HOUR
+
+    def _update(self, event_time=None):
+        """Ask for measurements for a duration.
+        This requires some further inputs, so we'll override the _update method.
+        """
+        from_dt, to_dt = get_from_to_datetime_month()
+
+        # using datetime will return a list of measurements
+        # we'll use the last item in that list
+        current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1M")
+        self._state = round(current[-1]["value"], 1)
+    
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return "%s %s" % (self._name, "monthly energy")
+
+ 
+    @property
+    def unique_id(self):
+        return "%s-%s-%s-month" % (self._node.uuid(), self._measurement_type.name, "sensor")
