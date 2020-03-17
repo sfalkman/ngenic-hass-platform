@@ -10,7 +10,8 @@ from homeassistant.const import (
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_HUMIDITY,
     DEVICE_CLASS_POWER,
-    ENERGY_KILO_WATT_HOUR
+    ENERGY_KILO_WATT_HOUR,
+    POWER_WATT
 )
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.event import async_track_time_interval
@@ -216,7 +217,14 @@ class NgenicPowerSensor(NgenicSensor):
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement."""
-        return "kW"
+        return POWER_WATT
+
+    def _update(self, event_time=None):
+        """Fetch new power state data for the sensor.
+        The NGenic API returns a float with kW but HA huses W so we need to multiply by 1000
+        """
+        current = self._node.measurement(self._measurement_type)
+        self._state = round(current["value"]*1000.0, 1)
 
 class NgenicEnergySensor(NgenicSensor):
     device_class = DEVICE_CLASS_POWER
