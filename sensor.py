@@ -1,5 +1,5 @@
 import logging
-import datetime
+from datetime import datetime, timedelta
 
 from ngenicpy import Ngenic
 from ngenicpy.models.node import NodeType
@@ -42,14 +42,9 @@ def get_from_to_datetime_month():
     and the `to` datetime is exclusive.
     """
     from_dt = datetime.datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    to_dt = (from_dt + datetime.timedelta(days=31)).replace(day=1)
+    to_dt = (from_dt + timedelta(days=31)).replace(day=1)
     return (from_dt.isoformat() + " " + TIME_ZONE, 
             to_dt.isoformat() + " " + TIME_ZONE)
-
-
-
-#async def async_setup_platform(hass, config, add_entities, discovery_info=None):
-#    pass
 
 def get_from_to_datetime(days=1):
     """Get a period
@@ -64,7 +59,7 @@ def get_from_to_datetime(days=1):
     and the `to` datetime is exclusive. 
     """
     from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    to_dt = from_dt + datetime.timedelta(days=days)
+    to_dt = from_dt + timedelta(days=days)
 
     return (from_dt.isoformat() + " " + TIME_ZONE, 
             to_dt.isoformat() + " " + TIME_ZONE)
@@ -95,6 +90,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
+                        timedelta(minutes=5),
                         MeasurementType.TEMPERATURE
                     )
                 )            
@@ -106,6 +102,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
+                        timedelta(minutes=5),
                         MeasurementType.HUMIDITY
                     )
                 )
@@ -117,6 +114,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
+                        timedelta(minutes=1),
                         MeasurementType.POWER_KW
                     )
                 )
@@ -128,6 +126,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
+                        timedelta(hours=1),
                         MeasurementType.ENERGY_KWH
                     )
                 )
@@ -137,6 +136,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
+                        timedelta(hours=1),
                         MeasurementType.ENERGY_KWH
                     )
                 )
@@ -146,19 +146,20 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         await device._async_update()
 
         # Setup update interval
-        async_track_time_interval(hass, device._async_update, SCAN_INTERVAL)
+        async_track_time_interval(hass, device._async_update, device._update_interval)
 
     async_add_entities(devices)
 
 class NgenicSensor(Entity):
     """Representation of an Ngenic Sensor"""
     
-    def __init__(self, hass, ngenic, node, name, measurement_type):
+    def __init__(self, hass, ngenic, node, name, update_interval, measurement_type):
         self._hass = hass
         self._state = None
         self._ngenic = ngenic
         self._name = name
         self._node = node
+        self._update_interval = update_interval
         self._measurement_type = measurement_type
 
     @property
@@ -190,6 +191,7 @@ class NgenicSensor(Entity):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
+        print(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)") + " Updating " + self._name)
         current = self._node.measurement(self._measurement_type)
         self._state = round(current["value"], 1)
 
