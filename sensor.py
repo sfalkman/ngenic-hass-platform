@@ -41,7 +41,7 @@ def get_from_to_datetime_month():
     When asking for measurements, the `from` datetime is inclusive
     and the `to` datetime is exclusive.
     """
-    from_dt = datetime.datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    from_dt = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     to_dt = (from_dt + timedelta(days=31)).replace(day=1)
     return (from_dt.isoformat() + " " + TIME_ZONE, 
             to_dt.isoformat() + " " + TIME_ZONE)
@@ -58,7 +58,7 @@ def get_from_to_datetime(days=1):
     When asking for measurements, the `from` datetime is inclusive
     and the `to` datetime is exclusive. 
     """
-    from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    from_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     to_dt = from_dt + timedelta(days=days)
 
     return (from_dt.isoformat() + " " + TIME_ZONE, 
@@ -142,13 +142,14 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 )
 
     for device in devices:
-        # Initial update
+        # Initial update (will not update hass state)
         await device._async_update()
 
         # Setup update interval
         async_track_time_interval(hass, device._async_update, device._update_interval)
 
-    async_add_entities(devices)
+    # Add entities to hass (and trigger a state update)
+    async_add_entities(devices, update_before_add=True)
 
 class NgenicSensor(Entity):
     """Representation of an Ngenic Sensor"""
@@ -178,10 +179,8 @@ class NgenicSensor(Entity):
 
     @property
     def should_poll(self):
-        """Enable polling. We got our own timer for actually refreshing
-        the status, but this will poll the state variable.
-        """
-        return True
+        """An update is pushed when device is updated"""
+        return False
 
     async def _async_update(self, event_time=None):
         """Execute the update asynchronous"""
@@ -193,7 +192,17 @@ class NgenicSensor(Entity):
         """
         print(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)") + " Updating " + self._name)
         current = self._node.measurement(self._measurement_type)
-        self._state = round(current["value"], 1)
+        new_state = round(current["value"], 1)
+        
+        if self._state != new_state:
+            self._state = new_state
+            
+            # self.hass is loaded once the entity have been setup.
+            # Since this method is executed before adding the entity
+            # the hass object might not have been loaded yet. 
+            if self.hass:
+                # Tell hass that an update is available
+                self.schedule_update_ha_state()
 
 class NgenicTempSensor(NgenicSensor):
     device_class = DEVICE_CLASS_TEMPERATURE
