@@ -126,7 +126,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
-                        timedelta(hours=1),
+                        timedelta(minutes=10),
                         MeasurementType.ENERGY_KWH
                     )
                 )
@@ -136,7 +136,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
-                        timedelta(hours=1),
+                        timedelta(minutes=20),
                         MeasurementType.ENERGY_KWH
                     )
                 )
@@ -186,13 +186,19 @@ class NgenicSensor(Entity):
         """Execute the update asynchronous"""
         await self._hass.async_add_executor_job(self._update)
 
+
+    def _fetch_ngenic_api_update(self):
+        _LOGGER.debug("Updating base: " + self._name)
+        current = self._node.measurement(self._measurement_type)
+        return round(current["value"], 1)
+
     def _update(self, event_time=None):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
         print(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)") + " Updating " + self._name)
-        current = self._node.measurement(self._measurement_type)
-        new_state = round(current["value"], 1)
+        #current = self._node.measurement(self._measurement_type)
+        new_state = self._fetch_ngenic_api_update()
         
         if self._state != new_state:
             self._state = new_state
@@ -230,13 +236,16 @@ class NgenicPowerSensor(NgenicSensor):
         """Return the unit of measurement."""
         return POWER_WATT
 
-    def _update(self, event_time=None):
+    def _fetch_ngenic_api_update(self):
         """Fetch new power state data for the sensor.
         The NGenic API returns a float with kW but HA huses W so we need to multiply by 1000
         """
+        _LOGGER.debug("Updating pwr: " + self._name)
         current = self._node.measurement(self._measurement_type)
-        self._state = round(current["value"]*1000.0, 1)
+        return round(current["value"]*1000.0, 1)
 
+
+        
 class NgenicEnergySensor(NgenicSensor):
     device_class = DEVICE_CLASS_POWER
 
@@ -245,7 +254,7 @@ class NgenicEnergySensor(NgenicSensor):
         """Return the unit of measurement."""
         return ENERGY_KILO_WATT_HOUR
 
-    def _update(self, event_time=None):
+    def _fetch_ngenic_api_update(self):
         """Ask for measurements for a duration.
         This requires some further inputs, so we'll override the _update method.
         """
@@ -253,8 +262,10 @@ class NgenicEnergySensor(NgenicSensor):
 
         # using datetime will return a list of measurements
         # we'll use the last item in that list
+        _LOGGER.debug("Updating nrg 1: " + self._name)
+
         current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
-        self._state = round(current[-1]["value"], 1)
+        return round(current[-1]["value"], 1)
 
     @property
     def name(self):
@@ -269,7 +280,7 @@ class NgenicEnergySensorMonth(NgenicSensor):
         """Return the unit of measurement."""
         return ENERGY_KILO_WATT_HOUR
 
-    def _update(self, event_time=None):
+    def _fetch_ngenic_api_update(self):
         """Ask for measurements for a duration.
         This requires some further inputs, so we'll override the _update method.
         """
@@ -278,8 +289,9 @@ class NgenicEnergySensorMonth(NgenicSensor):
         # using datetime will return a list of measurements
         # we'll use the last item in that list
         # dont send any period so the response includes the whole timespan
+        _LOGGER.debug("Updating nrg 1: " + self._name)
         current = self._node.measurement(self._measurement_type, from_dt, to_dt)
-        self._state = round(current[-1]["value"], 1)
+        return round(current[-1]["value"], 1)
 
     @property
     def name(self):
