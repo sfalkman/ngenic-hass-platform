@@ -218,8 +218,6 @@ class NgenicTempSensor(NgenicSensor):
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement."""
-        # TODO: Not sure if Ngenic API can return something
-        # else than "temperature_C"
         return TEMP_CELSIUS
 
 class NgenicHumiditySensor(NgenicSensor):
@@ -244,8 +242,6 @@ class NgenicPowerSensor(NgenicSensor):
         """
         current = self._node.measurement(self._measurement_type)
         return round(current["value"]*1000.0, 1)
-
-
         
 class NgenicEnergySensor(NgenicSensor):
     device_class = DEVICE_CLASS_POWER
@@ -283,7 +279,6 @@ class NgenicEnergySensorMonth(NgenicSensor):
         This requires some further inputs, so we'll override the _update method.
         """
         from_dt, to_dt = get_from_to_datetime_month()
-
         # using datetime will return a list of measurements
         # we'll use the last item in that list
         # dont send any period so the response includes the whole timespan
