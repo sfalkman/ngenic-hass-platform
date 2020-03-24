@@ -182,26 +182,30 @@ class NgenicSensor(Entity):
         """An update is pushed when device is updated"""
         return False
 
+    def _fetch_measurement(self):
+        """Fetch the measurement data from ngenic API.
+        Return measurement formatted as intended to be displayed in hass.
+        Concrete classes should override this function if they
+        fetch or format the measurement differently.
+        """
+        current = self._node.measurement(self._measurement_type)
+        return round(current["value"], 1)
+
     async def _async_update(self, event_time=None):
         """Execute the update asynchronous"""
         await self._hass.async_add_executor_job(self._update)
-
-
-    def _fetch_ngenic_api_update(self):
-        """Make the acctual API call to NGenic API """
-        current = self._node.measurement(self._measurement_type)
-        return round(current["value"], 1)
 
     def _update(self, event_time=None):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
         _LOGGER.debug("NgenicSensor._update getting API state for %s %s" % (self._name, self._measurement_type))
-        new_state = self._fetch_ngenic_api_update()
+        new_state = self._fetch_measurement()
         
         if self._state != new_state:
             self._state = new_state
             _LOGGER.debug("NgenicSensor._update got updated state %f for %s %s" % (new_state, self._name, self._measurement_type))
+            
             # self.hass is loaded once the entity have been setup.
             # Since this method is executed before adding the entity
             # the hass object might not have been loaded yet. 
@@ -209,7 +213,7 @@ class NgenicSensor(Entity):
                 # Tell hass that an update is available
                 self.schedule_update_ha_state()
         else:
-            _LOGGER.debug("NgenicSensor._update NOT updated state %f for %s %s" % (new_state, self._name, self._measurement_type))
+            _LOGGER.debug("NgenicSensor._update didn't change the current state %f for %s %s" % (new_state, self._name, self._measurement_type))
 
 
 class NgenicTempSensor(NgenicSensor):
@@ -236,7 +240,7 @@ class NgenicPowerSensor(NgenicSensor):
         """Return the unit of measurement."""
         return POWER_WATT
 
-    def _fetch_ngenic_api_update(self):
+    def _fetch_measurement(self):
         """Fetch new power state data for the sensor.
         The NGenic API returns a float with kW but HA huses W so we need to multiply by 1000
         """
@@ -251,9 +255,9 @@ class NgenicEnergySensor(NgenicSensor):
         """Return the unit of measurement."""
         return ENERGY_KILO_WATT_HOUR
 
-    def _fetch_ngenic_api_update(self):
+    def _fetch_measurement(self):
         """Ask for measurements for a duration.
-        This requires some further inputs, so we'll override the _update method.
+        This requires some further inputs, so we'll override the _fetch_measurement method.
         """
         from_dt, to_dt = get_from_to_datetime()
         # using datetime will return a list of measurements
@@ -274,9 +278,9 @@ class NgenicEnergySensorMonth(NgenicSensor):
         """Return the unit of measurement."""
         return ENERGY_KILO_WATT_HOUR
 
-    def _fetch_ngenic_api_update(self):
+    def _fetch_measurement(self):
         """Ask for measurements for a duration.
-        This requires some further inputs, so we'll override the _update method.
+        This requires some further inputs, so we'll override the _fetch_measurement method.
         """
         from_dt, to_dt = get_from_to_datetime_month()
         # using datetime will return a list of measurements
