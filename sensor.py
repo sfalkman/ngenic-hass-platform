@@ -188,7 +188,7 @@ class NgenicSensor(Entity):
 
 
     def _fetch_ngenic_api_update(self):
-        _LOGGER.debug("Updating base: " + self._name)
+        """Make the acctual API call to NGenic API """
         current = self._node.measurement(self._measurement_type)
         return round(current["value"], 1)
 
@@ -196,19 +196,21 @@ class NgenicSensor(Entity):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
-        print(datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)") + " Updating " + self._name)
-        #current = self._node.measurement(self._measurement_type)
+        _LOGGER.debug("NgenicSensor._update getting API state for %s %s" % (self._name, self._measurement_type))
         new_state = self._fetch_ngenic_api_update()
         
         if self._state != new_state:
             self._state = new_state
-            
+            _LOGGER.debug("NgenicSensor._update got updated state %f for %s %s" % (new_state, self._name, self._measurement_type))
             # self.hass is loaded once the entity have been setup.
             # Since this method is executed before adding the entity
             # the hass object might not have been loaded yet. 
             if self.hass:
                 # Tell hass that an update is available
                 self.schedule_update_ha_state()
+        else:
+            _LOGGER.debug("NgenicSensor._update NOT updated state %f for %s %s" % (new_state, self._name, self._measurement_type))
+
 
 class NgenicTempSensor(NgenicSensor):
     device_class = DEVICE_CLASS_TEMPERATURE
@@ -216,8 +218,6 @@ class NgenicTempSensor(NgenicSensor):
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement."""
-        # TODO: Not sure if Ngenic API can return something
-        # else than "temperature_C"
         return TEMP_CELSIUS
 
 class NgenicHumiditySensor(NgenicSensor):
@@ -240,11 +240,8 @@ class NgenicPowerSensor(NgenicSensor):
         """Fetch new power state data for the sensor.
         The NGenic API returns a float with kW but HA huses W so we need to multiply by 1000
         """
-        _LOGGER.debug("Updating pwr: " + self._name)
         current = self._node.measurement(self._measurement_type)
         return round(current["value"]*1000.0, 1)
-
-
         
 class NgenicEnergySensor(NgenicSensor):
     device_class = DEVICE_CLASS_POWER
@@ -259,11 +256,8 @@ class NgenicEnergySensor(NgenicSensor):
         This requires some further inputs, so we'll override the _update method.
         """
         from_dt, to_dt = get_from_to_datetime()
-
         # using datetime will return a list of measurements
         # we'll use the last item in that list
-        _LOGGER.debug("Updating nrg 1: " + self._name)
-
         current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
         return round(current[-1]["value"], 1)
 
@@ -285,11 +279,9 @@ class NgenicEnergySensorMonth(NgenicSensor):
         This requires some further inputs, so we'll override the _update method.
         """
         from_dt, to_dt = get_from_to_datetime_month()
-
         # using datetime will return a list of measurements
         # we'll use the last item in that list
         # dont send any period so the response includes the whole timespan
-        _LOGGER.debug("Updating nrg 1: " + self._name)
         current = self._node.measurement(self._measurement_type, from_dt, to_dt)
         return round(current[-1]["value"], 1)
 
