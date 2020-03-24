@@ -1,5 +1,5 @@
 import logging
-import datetime
+from datetime import datetime, timedelta
 
 from ngenicpy import Ngenic
 from ngenicpy.models.node import NodeType
@@ -41,15 +41,10 @@ def get_from_to_datetime_month():
     When asking for measurements, the `from` datetime is inclusive
     and the `to` datetime is exclusive.
     """
-    from_dt = datetime.datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    to_dt = (from_dt + datetime.timedelta(days=31)).replace(day=1)
+    from_dt = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    to_dt = (from_dt + timedelta(days=31)).replace(day=1)
     return (from_dt.isoformat() + " " + TIME_ZONE, 
             to_dt.isoformat() + " " + TIME_ZONE)
-
-
-
-#async def async_setup_platform(hass, config, add_entities, discovery_info=None):
-#    pass
 
 def get_from_to_datetime(days=1):
     """Get a period
@@ -63,8 +58,8 @@ def get_from_to_datetime(days=1):
     When asking for measurements, the `from` datetime is inclusive
     and the `to` datetime is exclusive. 
     """
-    from_dt = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    to_dt = from_dt + datetime.timedelta(days=days)
+    from_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    to_dt = from_dt + timedelta(days=days)
 
     return (from_dt.isoformat() + " " + TIME_ZONE, 
             to_dt.isoformat() + " " + TIME_ZONE)
@@ -95,6 +90,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
+                        timedelta(minutes=5),
                         MeasurementType.TEMPERATURE
                     )
                 )            
@@ -106,6 +102,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
+                        timedelta(minutes=5),
                         MeasurementType.HUMIDITY
                     )
                 )
@@ -117,6 +114,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
+                        timedelta(minutes=1),
                         MeasurementType.POWER_KW
                     )
                 )
@@ -128,6 +126,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
+                        timedelta(minutes=10),
                         MeasurementType.ENERGY_KWH
                     )
                 )
@@ -137,28 +136,31 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         ngenic,
                         node,
                         node_name,
+                        timedelta(minutes=20),
                         MeasurementType.ENERGY_KWH
                     )
                 )
 
     for device in devices:
-        # Initial update
+        # Initial update (will not update hass state)
         await device._async_update()
 
         # Setup update interval
-        async_track_time_interval(hass, device._async_update, SCAN_INTERVAL)
+        async_track_time_interval(hass, device._async_update, device._update_interval)
 
-    async_add_entities(devices)
+    # Add entities to hass (and trigger a state update)
+    async_add_entities(devices, update_before_add=True)
 
 class NgenicSensor(Entity):
     """Representation of an Ngenic Sensor"""
     
-    def __init__(self, hass, ngenic, node, name, measurement_type):
+    def __init__(self, hass, ngenic, node, name, update_interval, measurement_type):
         self._hass = hass
         self._state = None
         self._ngenic = ngenic
         self._name = name
         self._node = node
+        self._update_interval = update_interval
         self._measurement_type = measurement_type
 
     @property
@@ -177,10 +179,17 @@ class NgenicSensor(Entity):
 
     @property
     def should_poll(self):
-        """Enable polling. We got our own timer for actually refreshing
-        the status, but this will poll the state variable.
+        """An update is pushed when device is updated"""
+        return False
+
+    def _fetch_measurement(self):
+        """Fetch the measurement data from ngenic API.
+        Return measurement formatted as intended to be displayed in hass.
+        Concrete classes should override this function if they
+        fetch or format the measurement differently.
         """
-        return True
+        current = self._node.measurement(self._measurement_type)
+        return round(current["value"], 1)
 
     async def _async_update(self, event_time=None):
         """Execute the update asynchronous"""
@@ -190,8 +199,22 @@ class NgenicSensor(Entity):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
-        current = self._node.measurement(self._measurement_type)
-        self._state = round(current["value"], 1)
+        _LOGGER.debug("NgenicSensor._update getting API state for %s %s" % (self._name, self._measurement_type))
+        new_state = self._fetch_measurement()
+        
+        if self._state != new_state:
+            self._state = new_state
+            _LOGGER.debug("NgenicSensor._update got updated state %f for %s %s" % (new_state, self._name, self._measurement_type))
+            
+            # self.hass is loaded once the entity have been setup.
+            # Since this method is executed before adding the entity
+            # the hass object might not have been loaded yet. 
+            if self.hass:
+                # Tell hass that an update is available
+                self.schedule_update_ha_state()
+        else:
+            _LOGGER.debug("NgenicSensor._update didn't change the current state %f for %s %s" % (new_state, self._name, self._measurement_type))
+
 
 class NgenicTempSensor(NgenicSensor):
     device_class = DEVICE_CLASS_TEMPERATURE
@@ -199,8 +222,6 @@ class NgenicTempSensor(NgenicSensor):
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement."""
-        # TODO: Not sure if Ngenic API can return something
-        # else than "temperature_C"
         return TEMP_CELSIUS
 
 class NgenicHumiditySensor(NgenicSensor):
@@ -219,13 +240,13 @@ class NgenicPowerSensor(NgenicSensor):
         """Return the unit of measurement."""
         return POWER_WATT
 
-    def _update(self, event_time=None):
+    def _fetch_measurement(self):
         """Fetch new power state data for the sensor.
         The NGenic API returns a float with kW but HA huses W so we need to multiply by 1000
         """
         current = self._node.measurement(self._measurement_type)
-        self._state = round(current["value"]*1000.0, 1)
-
+        return round(current["value"]*1000.0, 1)
+        
 class NgenicEnergySensor(NgenicSensor):
     device_class = DEVICE_CLASS_POWER
 
@@ -234,16 +255,15 @@ class NgenicEnergySensor(NgenicSensor):
         """Return the unit of measurement."""
         return ENERGY_KILO_WATT_HOUR
 
-    def _update(self, event_time=None):
+    def _fetch_measurement(self):
         """Ask for measurements for a duration.
-        This requires some further inputs, so we'll override the _update method.
+        This requires some further inputs, so we'll override the _fetch_measurement method.
         """
         from_dt, to_dt = get_from_to_datetime()
-
         # using datetime will return a list of measurements
         # we'll use the last item in that list
         current = self._node.measurement(self._measurement_type, from_dt, to_dt, "P1D")
-        self._state = round(current[-1]["value"], 1)
+        return round(current[-1]["value"], 1)
 
     @property
     def name(self):
@@ -258,17 +278,16 @@ class NgenicEnergySensorMonth(NgenicSensor):
         """Return the unit of measurement."""
         return ENERGY_KILO_WATT_HOUR
 
-    def _update(self, event_time=None):
+    def _fetch_measurement(self):
         """Ask for measurements for a duration.
-        This requires some further inputs, so we'll override the _update method.
+        This requires some further inputs, so we'll override the _fetch_measurement method.
         """
         from_dt, to_dt = get_from_to_datetime_month()
-
         # using datetime will return a list of measurements
         # we'll use the last item in that list
         # dont send any period so the response includes the whole timespan
         current = self._node.measurement(self._measurement_type, from_dt, to_dt)
-        self._state = round(current[-1]["value"], 1)
+        return round(current[-1]["value"], 1)
 
     @property
     def name(self):

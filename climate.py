@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from ngenicpy.models.measurement import MeasurementType
 
@@ -15,8 +16,7 @@ from homeassistant.const import (
 
 from .const import (
     DOMAIN,
-    DATA_CLIENT,
-    SCAN_INTERVAL
+    DATA_CLIENT
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         await device._async_update()
 
         # Setup update interval
-        async_track_time_interval(hass, device._async_update, SCAN_INTERVAL)
+        async_track_time_interval(hass, device._async_update, timedelta(minutes=5))
         
         devices.append(device)
 
