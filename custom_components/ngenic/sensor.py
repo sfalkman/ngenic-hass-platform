@@ -46,6 +46,24 @@ def get_from_to_datetime_month():
     return (from_dt.isoformat() + " " + TIME_ZONE, 
             to_dt.isoformat() + " " + TIME_ZONE)
 
+def get_from_to_datetime_last_month():
+    """Get a period for last month.
+    This will return two dates in ISO 8601:2004 format
+    The first date will be at 00:00 in the first of last month, and the second
+    date will be at 00:00 in the first day in this month.
+    
+    Both dates include the time zone name, or `Z` in case of UTC.
+    Including these will allow the API to handle DST correctly. 
+
+    When asking for measurements, the `from` datetime is inclusive
+    and the `to` datetime is exclusive.
+    """
+    to_dt = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    from_dt = (to_dt + timedelta(days=-1)).replace(day=1)
+    return (from_dt.isoformat() + " " + TIME_ZONE, 
+            to_dt.isoformat() + " " + TIME_ZONE)
+
+
 def get_from_to_datetime(days=1):
     """Get a period
     This will return two dates in ISO 8601:2004 format
@@ -137,6 +155,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         node,
                         node_name,
                         timedelta(minutes=20),
+                        MeasurementType.ENERGY_KWH
+                    )
+                )
+                devices.append(
+                    NgenicEnergySensorLastMonth(
+                        hass,
+                        ngenic,
+                        node,
+                        node_name,
+                        timedelta(minutes=60),
                         MeasurementType.ENERGY_KWH
                     )
                 )
@@ -297,3 +325,31 @@ class NgenicEnergySensorMonth(NgenicSensor):
     @property
     def unique_id(self):
         return "%s-%s-%s-month" % (self._node.uuid(), self._measurement_type.name, "sensor")
+
+class NgenicEnergySensorLastMonth(NgenicSensor):
+    device_class = DEVICE_CLASS_POWER
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement."""
+        return ENERGY_KILO_WATT_HOUR
+
+    def _fetch_measurement(self):
+        """Ask for measurements for a duration.
+        This requires some further inputs, so we'll override the _fetch_measurement method.
+        """
+        from_dt, to_dt = get_from_to_datetime_last_month()
+        # using datetime will return a list of measurements
+        # we'll use the last item in that list
+        # dont send any period so the response includes the whole timespan
+        current = self._node.measurement(self._measurement_type, from_dt, to_dt)
+        return round(current[-1]["value"], 1)
+
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return "%s %s" % (self._name, "last month energy")
+
+    @property
+    def unique_id(self):
+        return "%s-%s-%s-last-month" % (self._node.uuid(), self._measurement_type.name, "sensor")

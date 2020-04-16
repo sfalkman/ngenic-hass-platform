@@ -68,7 +68,7 @@ class NgenicTune(ClimateDevice):
         """Initialize the thermostat."""
         self._hass = hass
         self._ngenic = ngenic
-        self._name =  "NGenic Tune %s" % (tune["name"])
+        self._name =  "Ngenic Tune %s" % (tune["name"])
         self._tune = tune
         self._room = control_room
         self._node = control_node
