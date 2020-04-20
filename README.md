@@ -5,7 +5,7 @@ This platform adds sensors for Ngenic Tune & Track nodes that report temperature
 You can manually install this integration or install using HACS.
 
 ### Manual installation
-Copy the 'custom_components/ngenic' folder to your '<home assistant folder>/custom_components/ngenic'
+Copy the 'custom_components/ngenic' folder to your '\<home assistant folder\>/custom_components/ngenic'
 
 ### HACS installation
 The repository is HACS compatible. Add the repository to the Custom repositories under HACS Settings tab.
