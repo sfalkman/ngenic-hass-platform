@@ -21,11 +21,6 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-#async def async_setup_platform(hass, config, add_devices, discovery_info=None):
-#    """Set up the climate platform."""
-#    pass
-
-
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up the sensor platform."""
 
@@ -33,15 +28,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     devices = []
     
-    for tmp_tune in ngenic.tunes():
+    for tmp_tune in await ngenic.async_tunes():
         # listing tunes contain less information than when querying a single tune
-        tune = ngenic.tune(tmp_tune.uuid())
+        tune = await ngenic.async_tune(tmp_tune.uuid())
 
         # get the room whose sensor data and target temperature should be used as inputs to the Tune control system
-        control_room = tune.room(tune["roomToControlUuid"])
+        control_room = await tune.async_room(tune["roomToControlUuid"])
         
         # get the room node
-        control_node = tune.node(control_room["nodeUuid"])
+        control_node = await tune.async_node(control_room["nodeUuid"])
 
         device = NgenicTune(
             hass,
@@ -114,26 +109,22 @@ class NgenicTune(ClimateDevice):
         """Must be implemented"""
         return [HVAC_MODE_HEAT]
 
-    def set_temperature(self, **kwargs):
+    async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return
 
         self._room["targetTemperature"] = temperature
-        self._room.update()
+        await self._room.async_update()
         self._target_temperature = temperature
 
     async def _async_update(self, event_time=None):
-        """Execute the update asynchronous"""
-        await self._hass.async_add_executor_job(self._update)
-
-    def _update(self, event_time=None):
         """Fetch new state data from the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
-        current = self._node.measurement(MeasurementType.TEMPERATURE)
-        target = self._tune.room(self._room.uuid())["targetTemperature"]
+        current = await self._node.async_measurement(MeasurementType.TEMPERATURE)
+        target_room = await self._tune.async_room(self._room.uuid())
 
         self._current_temperature = round(current["value"], 1)
-        self._target_temperature = round(target, 1)
+        self._target_temperature = round(target_room["targetTemperature"], 1)
