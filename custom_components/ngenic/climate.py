@@ -4,7 +4,7 @@ from datetime import timedelta
 from ngenicpy.models.measurement import MeasurementType
 
 from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.components.climate import ClimateDevice
+from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
     SUPPORT_TARGET_TEMPERATURE,
     HVAC_MODE_HEAT
@@ -56,7 +56,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
     async_add_entities(devices)
 
-class NgenicTune(ClimateDevice):
+class NgenicTune(ClimateEntity):
     """Representation of an Ngenic Thermostat"""
 
     def __init__(self, hass, ngenic, tune, control_room, control_node):
