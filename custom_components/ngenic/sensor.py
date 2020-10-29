@@ -82,6 +82,32 @@ def get_from_to_datetime(days=1):
     return (from_dt.isoformat() + " " + TIME_ZONE, 
             to_dt.isoformat() + " " + TIME_ZONE)
 
+async def get_measurement_value(node, **kwargs):
+    """Get measurement 
+    This is a wrapper around the measurement API to gather
+    parsing and error handling in a single place.
+    """
+    measurement = await node.async_measurement(**kwargs)
+    if not measurement:
+        # measurement API will return None if no measurements were found for the period
+        _LOGGER.info("Measurement not found for period, this is expected when data have not been gathered for the period (type=%s, from=%s, to=%s)" % 
+            (
+                kwargs.get(measurement_type, "unknown"), 
+                kwargs.get(from_dt, "None"), 
+                kwargs.get(to_dt, "None")
+            )
+        )
+        measurement_val = 0
+    else:
+        if isinstance(measurement, list):
+            # using datetime will return a list of measurements
+            # we'll use the last item in that list
+            measurement_val = measurement[-1]["value"]
+        else:
+            measurement_val = measurement["value"]
+
+    return measurement_val
+
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Set up the sensor platform."""
     ngenic = hass.data[DOMAIN][DATA_CLIENT]
@@ -217,19 +243,19 @@ class NgenicSensor(Entity):
         Concrete classes should override this function if they
         fetch or format the measurement differently.
         """
-        current = await self._node.async_measurement(self._measurement_type)
-        return round(current["value"], 1)
+        current = await get_measurement_value(self._node, measurement_type=self._measurement_type)
+        return round(current, 1)
 
     async def _async_update(self, event_time=None):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
-        _LOGGER.debug("NgenicSensor._update getting API state for %s %s" % (self._name, self._measurement_type))
+        _LOGGER.debug("Fetch measurement (name=%s, type=%s)" % (self._name, self._measurement_type))
         new_state = await self._async_fetch_measurement()
         
         if self._state != new_state:
             self._state = new_state
-            _LOGGER.debug("NgenicSensor._update got updated state %f for %s %s" % (new_state, self._name, self._measurement_type))
+            _LOGGER.debug("New measurement: %f (name=%s, type=%s)" % (new_state, self._name, self._measurement_type))
             
             # self.hass is loaded once the entity have been setup.
             # Since this method is executed before adding the entity
@@ -238,7 +264,7 @@ class NgenicSensor(Entity):
                 # Tell hass that an update is available
                 self.schedule_update_ha_state()
         else:
-            _LOGGER.debug("NgenicSensor._update didn't change the current state %f for %s %s" % (new_state, self._name, self._measurement_type))
+            _LOGGER.debug("No new measurement (old=%f, name=%s, type=%s)" % (new_state, self._name, self._measurement_type))
 
 
 
@@ -270,8 +296,8 @@ class NgenicPowerSensor(NgenicSensor):
         """Fetch new power state data for the sensor.
         The NGenic API returns a float with kW but HA huses W so we need to multiply by 1000
         """
-        current = await self._node.async_measurement(self._measurement_type)
-        return round(current["value"]*1000.0, 1)
+        current = await get_measurement_value(self._node, measurement_type=self._measurement_type)
+        return round(current*1000.0, 1)
         
 class NgenicEnergySensor(NgenicSensor):
     device_class = DEVICE_CLASS_POWER
@@ -288,9 +314,9 @@ class NgenicEnergySensor(NgenicSensor):
         from_dt, to_dt = get_from_to_datetime()
         # using datetime will return a list of measurements
         # we'll use the last item in that list
-        current = await self._node.async_measurement(self._measurement_type, from_dt, to_dt, "P1D")
-        return round(current[-1]["value"], 1)
-
+        current = await get_measurement_value(self._node, measurement_type=self._measurement_type, from_dt=from_dt, to_dt=to_dt, period="P1D")
+        return round(current, 1)
+        
     @property
     def name(self):
         """Return the name of the sensor."""
@@ -312,8 +338,8 @@ class NgenicEnergySensorMonth(NgenicSensor):
         # using datetime will return a list of measurements
         # we'll use the last item in that list
         # dont send any period so the response includes the whole timespan
-        current = await self._node.async_measurement(self._measurement_type, from_dt, to_dt)
-        return round(current[-1]["value"], 1)
+        current = await get_measurement_value(self._node, measurement_type=self._measurement_type, from_dt=from_dt, to_dt=to_dt)
+        return round(current, 1)
 
     @property
     def name(self):
@@ -337,11 +363,8 @@ class NgenicEnergySensorLastMonth(NgenicSensor):
         This requires some further inputs, so we'll override the _async_fetch_measurement method.
         """
         from_dt, to_dt = get_from_to_datetime_last_month()
-        # using datetime will return a list of measurements
-        # we'll use the last item in that list
-        # dont send any period so the response includes the whole timespan
-        current = await self._node.async_measurement(self._measurement_type, from_dt, to_dt)
-        return round(current[-1]["value"], 1)
+        current = await get_measurement_value(self._node, measurement_type=self._measurement_type, from_dt=from_dt, to_dt=to_dt)
+        return round(current, 1)
 
     @property
     def name(self):
