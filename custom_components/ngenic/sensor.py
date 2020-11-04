@@ -92,9 +92,9 @@ async def get_measurement_value(node, **kwargs):
         # measurement API will return None if no measurements were found for the period
         _LOGGER.info("Measurement not found for period, this is expected when data have not been gathered for the period (type=%s, from=%s, to=%s)" % 
             (
-                kwargs.get(measurement_type, "unknown"), 
-                kwargs.get(from_dt, "None"), 
-                kwargs.get(to_dt, "None")
+                kwargs.get("measurement_type", "unknown"), 
+                kwargs.get("from_dt", "None"), 
+                kwargs.get("to_dt", "None")
             )
         )
         measurement_val = 0
