@@ -60,8 +60,8 @@ async def async_setup(hass, config):
     return True
 
 async def async_setup_entry(hass, config_entry):
-    from ngenicpy import Ngenic
-    ngenic = Ngenic(
+    from ngenicpy import AsyncNgenic
+    ngenic = AsyncNgenic(
         token=config_entry.data[CONF_TOKEN]
     )
 
@@ -75,5 +75,7 @@ async def async_setup_entry(hass, config_entry):
 async def async_unload_entry(hass, config_entry):
     for component in ("sensor", "climate"):
         await hass.config_entries.async_forward_entry_unload(config_entry, component)
+
+    await hass.data[DOMAIN][DATA_CLIENT].async_close()
 
     return True
