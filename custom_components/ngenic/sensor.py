@@ -13,14 +13,30 @@ from homeassistant.const import (
     ENERGY_KILO_WATT_HOUR,
     POWER_WATT
 )
-from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity import Entity, generate_entity_id
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.components.sensor import ENTITY_ID_FORMAT
+
+from homeassistant.components.utility_meter.sensor import UtilityMeterSensor
+from homeassistant.components.utility_meter.const import (
+    HOURLY as UTILITY_METER_TYPE_HOURLY,
+    DAILY as UTILITY_METER_TYPE_DAILY,
+    MONTHLY as UTILITY_METER_TYPE_MONTHLY,
+    QUARTERLY as UTILITY_METER_TYPE_QUARTERLY,
+    WEEKLY as UTILITY_METER_TYPE_WEEKLY,
+    YEARLY as UTILITY_METER_TYPE_YEARLY
+)
+
 import homeassistant.util.dt as dt_util
 
 from .const import (
     DOMAIN,
     DATA_CLIENT,
-    SCAN_INTERVAL
+    SCAN_INTERVAL,
+    CONF_CREATE_UTILITY_METERS,
+    CONF_CREATE_CURRENT_MONTH_SENSOR,
+    CONF_CREATE_PREVIOUS_MONTH_SENSOR
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,20 +80,18 @@ def get_from_to_datetime_last_month():
             to_dt.isoformat() + " " + TIME_ZONE)
 
 
-def get_from_to_datetime(days=1):
-    """Get a period
+def get_from_to_datetime_total():
+    """Get a period from 2000-01-01 until now
     This will return two dates in ISO 8601:2004 format
-    The first date will be at 00:00 today, and the second
-    date will be at 00:00 n days ahead of now.
-
+    
     Both dates include the time zone name, or `Z` in case of UTC.
     Including these will allow the API to handle DST correctly. 
 
     When asking for measurements, the `from` datetime is inclusive
-    and the `to` datetime is exclusive. 
+    and the `to` datetime is exclusive.
     """
-    from_dt = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    to_dt = from_dt + timedelta(days=days)
+    from_dt = datetime.now().replace(year=2000, hour=0, minute=0, second=0, microsecond=0)
+    to_dt = datetime.now().replace(microsecond=0)
 
     return (from_dt.isoformat() + " " + TIME_ZONE, 
             to_dt.isoformat() + " " + TIME_ZONE)
@@ -165,43 +179,79 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 )
 
             if MeasurementType.ENERGY_KWH in measurement_types:
-                devices.append(
-                    NgenicEnergySensor(
-                        hass,
-                        ngenic,
-                        node,
-                        node_name,
-                        timedelta(minutes=10),
-                        MeasurementType.ENERGY_KWH
-                    )
+                energy_sensor = NgenicEnergySensor(
+                    hass,
+                    ngenic,
+                    node,
+                    node_name,
+                    timedelta(minutes=10),
+                    MeasurementType.ENERGY_KWH
                 )
-                devices.append(
-                    NgenicEnergySensorMonth(
-                        hass,
-                        ngenic,
-                        node,
-                        node_name,
-                        timedelta(minutes=20),
-                        MeasurementType.ENERGY_KWH
+                devices.append(energy_sensor)
+
+                if config_entry.options.get(CONF_CREATE_UTILITY_METERS, False):
+                    utility_meter_source_entity_id = generate_entity_id(ENTITY_ID_FORMAT, energy_sensor.name, None, hass)
+
+                    def add_utility_meter(meter_type):
+                        devices.append(UtilityMeterSensor(
+                            utility_meter_source_entity_id,
+                            "%s %s %s" % (energy_sensor.name, "meter", meter_type),
+                            meter_type,
+                            timedelta(0),
+                            False
+                        ))
+                    add_utility_meter(UTILITY_METER_TYPE_YEARLY)
+                    add_utility_meter(UTILITY_METER_TYPE_MONTHLY)
+                    add_utility_meter(UTILITY_METER_TYPE_DAILY)
+                    add_utility_meter(UTILITY_METER_TYPE_HOURLY)
+
+                if config_entry.options.get(CONF_CREATE_CURRENT_MONTH_SENSOR, True):
+                    devices.append(
+                        NgenicEnergySensorMonth(
+                            hass,
+                            ngenic,
+                            node,
+                            node_name,
+                            timedelta(minutes=20),
+                            MeasurementType.ENERGY_KWH
+                        )
                     )
-                )
+                
+                if config_entry.options.get(CONF_CREATE_PREVIOUS_MONTH_SENSOR, True):
+                    devices.append(
+                        NgenicEnergySensorLastMonth(
+                            hass,
+                            ngenic,
+                            node,
+                            node_name,
+                            timedelta(minutes=60),
+                            MeasurementType.ENERGY_KWH
+                        )
+                    )
+
+
+            if MeasurementType.CONTROL_VALUE in measurement_types:
                 devices.append(
-                    NgenicEnergySensorLastMonth(
+                    NgenicControlTempSensor(
                         hass,
                         ngenic,
                         node,
                         node_name,
-                        timedelta(minutes=60),
-                        MeasurementType.ENERGY_KWH
+                        timedelta(minutes=5),
+                        MeasurementType.CONTROL_VALUE
                     )
                 )
 
     for device in devices:
-        # Initial update (will not update hass state)
-        await device._async_update()
+        if isinstance(device, NgenicSensor):
+            # Skip updating RestoreStateNgenicSensor
+            # Since that is handled by the sensor it
+            if not isinstance(device, RestoreStateNgenicSensor):
+                # Initial update (will not update hass state)
+                await device._async_update()
 
-        # Setup update interval
-        async_track_time_interval(hass, device._async_update, device._update_interval)
+            # Setup update interval
+            async_track_time_interval(hass, device._async_update, device._update_interval)
 
     # Add entities to hass (and trigger a state update)
     async_add_entities(devices, update_before_add=True)
@@ -266,7 +316,34 @@ class NgenicSensor(Entity):
         else:
             _LOGGER.debug("No new measurement (old=%f, name=%s, type=%s)" % (new_state, self._name, self._measurement_type))
 
+class RestoreStateNgenicSensor(NgenicSensor, RestoreEntity):
+    """Representation of an Ngenic Sensor with RestoreState"""
 
+    def __init__(self, hass, ngenic, node, name, update_interval, measurement_type):
+        NgenicSensor.__init__(self, hass, ngenic, node, name, update_interval, measurement_type)
+
+    async def async_added_to_hass(self):
+        """Call when entity about to be added to Home Assistant."""
+        await super().async_added_to_hass()
+
+        state = await self.async_get_last_state()
+        try:
+            value = state and float(state.state)
+        except ValueError:
+            value = None
+
+        _LOGGER.debug("restore from restore_state (name=%s, value=%s)" %
+                      (self._name, value))
+
+        self._state = value
+
+        # Trigger update is no cached state was found
+        if value is None:
+            await self._async_update()
+
+    async def async_will_remove_from_hass(self):
+        """Call when entity is being removed from Home Assistant."""
+        await super().async_will_remove_from_hass()
 
 class NgenicTempSensor(NgenicSensor):
     device_class = DEVICE_CLASS_TEMPERATURE
@@ -275,6 +352,13 @@ class NgenicTempSensor(NgenicSensor):
     def unit_of_measurement(self):
         """Return the unit of measurement."""
         return TEMP_CELSIUS
+
+class NgenicControlTempSensor(NgenicTempSensor):
+
+    @property
+    def name(self):
+        """Return the name of the sensor."""
+        return "%s %s" % (self._name, "control value")
 
 class NgenicHumiditySensor(NgenicSensor):
     device_class = DEVICE_CLASS_HUMIDITY
@@ -299,7 +383,7 @@ class NgenicPowerSensor(NgenicSensor):
         current = await get_measurement_value(self._node, measurement_type=self._measurement_type)
         return round(current*1000.0, 1)
         
-class NgenicEnergySensor(NgenicSensor):
+class NgenicEnergySensor(RestoreStateNgenicSensor):
     device_class = DEVICE_CLASS_POWER
 
     @property
@@ -311,17 +395,17 @@ class NgenicEnergySensor(NgenicSensor):
         """Ask for measurements for a duration.
         This requires some further inputs, so we'll override the _async_fetch_measurement method.
         """
-        from_dt, to_dt = get_from_to_datetime()
+        from_dt, to_dt = get_from_to_datetime_total()
         # using datetime will return a list of measurements
         # we'll use the last item in that list
-        current = await get_measurement_value(self._node, measurement_type=self._measurement_type, from_dt=from_dt, to_dt=to_dt, period="P1D")
+        current = await get_measurement_value(self._node, measurement_type=self._measurement_type, from_dt=from_dt, to_dt=to_dt)
         return round(current, 1)
         
     @property
     def name(self):
         """Return the name of the sensor."""
         return "%s %s" % (self._name, "energy")
-
+        
 class NgenicEnergySensorMonth(NgenicSensor):
     device_class = DEVICE_CLASS_POWER
 
