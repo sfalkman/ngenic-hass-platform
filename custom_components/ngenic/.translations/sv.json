@@ -15,5 +15,17 @@
             "bad_token": "API token är felaktig",
             "no_tunes": "Hittade inga Tunes"
         }
+    },
+    "options": {
+        "step": {
+            "options": {
+                "title": "Ngenic Inställningar",
+                "data": {
+                    "create_utility_meters": "Skapa (energi)mätare för energisensorn",
+                    "create_current_month_sensor": "Skapa sensor för nuvarande månads energiförbrukning",
+                    "create_previous_month_sensor": "Skapa sensor för föregående månads energiförbrukning"          
+                }
+            }
+        }
     }
 }

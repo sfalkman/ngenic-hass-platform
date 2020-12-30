@@ -29,3 +29,7 @@ An API token may be obtained from Ngenic here: https://developer.ngenic.se/
 
 ## Configuration
 Configure via UI: Configuration > Integrations
+
+### Options
+
+Changes to your options does currently not take effect until HA is restarted
