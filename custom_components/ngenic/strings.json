@@ -15,5 +15,17 @@
             "bad_token": "API token was invalid",
             "no_tunes": "No Tunes was found"
         }
+    },
+    "options": {
+        "step": {
+            "options": {
+                "title": "Ngenic Options",
+                "data": {
+                    "create_utility_meters": "Create Utility Meters for Ngenic Energy Sensor",
+                    "create_current_month_sensor": "Create Polling Sensor for Current Month Energy Consumption",
+                    "create_previous_month_sensor": "Create Polling Sensor for Last Month Energy Consumption"          
+                }
+            }
+        }
     }
 }

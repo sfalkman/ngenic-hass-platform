@@ -10,7 +10,12 @@ from homeassistant.const import (
     CONF_TOKEN
 )
 
-from .const import DOMAIN
+from .const import (
+    DOMAIN,
+    CONF_CREATE_UTILITY_METERS,
+    CONF_CREATE_CURRENT_MONTH_SENSOR,
+    CONF_CREATE_PREVIOUS_MONTH_SENSOR
+)
 from .errors import AlreadyConfigured, NoTunes
 
 from ngenicpy import Ngenic
@@ -30,6 +35,12 @@ class FlowHandler(config_entries.ConfigFlow):
     
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_PUSH
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Get options flow for this handler."""
+        return OptionsFlowHandler(config_entry)
 
     async def async_step_import(self, import_config):
         """Import a config entry from configuration.yaml."""
@@ -79,4 +90,44 @@ class FlowHandler(config_entries.ConfigFlow):
             errors=errors
         )
 
-        
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for the Home Assistant Ngenic integration."""
+
+    def __init__(self, config_entry):
+        """Initialize options flow."""
+        self.config_entry = config_entry
+        self.options = dict(config_entry.options)
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        return await self.async_step_options()
+
+    async def async_step_options(self, user_input=None):
+        """Manage the options."""
+        if user_input is not None:
+            self.options.update(user_input)
+            return await self._update_options()
+
+        return self.async_show_form(
+            step_id="options",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_CREATE_UTILITY_METERS,
+                        default=self.config_entry.options.get(CONF_CREATE_UTILITY_METERS, False)
+                    ): bool,
+                    vol.Optional(
+                        CONF_CREATE_CURRENT_MONTH_SENSOR,
+                        default=self.config_entry.options.get(CONF_CREATE_CURRENT_MONTH_SENSOR, True)
+                    ): bool,
+                    vol.Optional(
+                        CONF_CREATE_PREVIOUS_MONTH_SENSOR,
+                        default=self.config_entry.options.get(CONF_CREATE_PREVIOUS_MONTH_SENSOR, True)
+                    ): bool,
+                }
+            ),
+        )
+
+    async def _update_options(self):
+        """Update config entry options."""
+        return self.async_create_entry(title="", data=self.options)
