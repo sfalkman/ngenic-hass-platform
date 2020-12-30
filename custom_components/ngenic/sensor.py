@@ -193,7 +193,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     utility_meter_source_entity_id = generate_entity_id(ENTITY_ID_FORMAT, energy_sensor.name, None, hass)
 
                     def add_utility_meter(meter_type):
-                        devices.append(UtilityMeterSensor(
+                        devices.append(NgenicUtilityMeterSensor(
                             utility_meter_source_entity_id,
                             "%s %s %s" % (energy_sensor.name, "meter", meter_type),
                             meter_type,
@@ -458,3 +458,10 @@ class NgenicEnergySensorLastMonth(NgenicSensor):
     @property
     def unique_id(self):
         return "%s-%s-%s-last-month" % (self._node.uuid(), self._measurement_type.name, "sensor")
+
+class NgenicUtilityMeterSensor(UtilityMeterSensor):
+    """Utility Meters used by Ngenic sensors"""
+
+    @property
+    def unique_id(self):
+        return "ngenic-utility-meter-%s" % (self._name)
