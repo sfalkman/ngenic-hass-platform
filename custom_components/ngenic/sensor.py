@@ -200,8 +200,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         # Initial update (will not update hass state)
         await device._async_update()
 
-        # Setup update interval
-        async_track_time_interval(hass, device._async_update, device._update_interval)
+        # Setup update timer
+        device._setup_updater()
 
     # Add entities to hass (and trigger a state update)
     async_add_entities(devices, update_before_add=True)
@@ -212,16 +212,22 @@ class NgenicSensor(Entity):
     def __init__(self, hass, ngenic, node, name, update_interval, measurement_type):
         self._hass = hass
         self._state = None
+        self._available = False
         self._ngenic = ngenic
         self._name = name
         self._node = node
         self._update_interval = update_interval
         self._measurement_type = measurement_type
+        self._updater = None
 
     @property
     def name(self):
         """Return the name of the sensor."""
         return "%s %s" % (self._name, self.device_class)
+
+    @property
+    def available(self):
+        return self._available
 
     @property
     def state(self):
@@ -237,6 +243,17 @@ class NgenicSensor(Entity):
         """An update is pushed when device is updated"""
         return False
 
+    async def async_will_remove_from_hass(self):
+        """Remove updater when sensor is removed."""
+        if self._updater:
+            self._updater()
+            self._updater = None
+
+    def _setup_updater(self):
+        """Setup a timer that will execute an update every update interval"""
+        # async_track_time_interval returns a function that, when executed, will remove the timer
+        self._updater = async_track_time_interval(self._hass, self._async_update, self._update_interval)
+
     async def _async_fetch_measurement(self):
         """Fetch the measurement data from ngenic API.
         Return measurement formatted as intended to be displayed in hass.
@@ -251,7 +268,15 @@ class NgenicSensor(Entity):
         This is the only method that should fetch new data for Home Assistant.
         """
         _LOGGER.debug("Fetch measurement (name=%s, type=%s)" % (self._name, self._measurement_type))
-        new_state = await self._async_fetch_measurement()
+        try:
+            new_state = await self._async_fetch_measurement()
+            self._available = True
+        except Exception:
+            # Don't throw an exception if a sensor fails to update.
+            # Instead, make the sensor unavailable.
+            _LOGGER.exception("Failed to update sensor '%s'" % self.unique_id)
+            self._available = False
+            return
         
         if self._state != new_state:
             self._state = new_state
@@ -265,8 +290,6 @@ class NgenicSensor(Entity):
                 self.schedule_update_ha_state()
         else:
             _LOGGER.debug("No new measurement (old=%f, name=%s, type=%s)" % (new_state, self._name, self._measurement_type))
-
-
 
 class NgenicTempSensor(NgenicSensor):
     device_class = DEVICE_CLASS_TEMPERATURE
