@@ -49,8 +49,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # Initial update
         await device._async_update()
 
-        # Setup update interval
-        async_track_time_interval(hass, device._async_update, timedelta(minutes=5))
+        # Setup update timer
+        device._setup_updater()
         
         devices.append(device)
 
@@ -62,6 +62,7 @@ class NgenicTune(ClimateEntity):
     def __init__(self, hass, ngenic, tune, control_room, control_node):
         """Initialize the thermostat."""
         self._hass = hass
+        self._available = False
         self._ngenic = ngenic
         self._name =  "Ngenic Tune %s" % (tune["name"])
         self._tune = tune
@@ -69,6 +70,7 @@ class NgenicTune(ClimateEntity):
         self._node = control_node
         self._current_temperature = None
         self._target_temperature = None
+        self._updater = None
 
     @property
     def supported_features(self):
@@ -79,6 +81,10 @@ class NgenicTune(ClimateEntity):
     def name(self):
         """Return the name of the Tune."""
         return self._name
+
+    @property
+    def available(self):
+        return self._available
 
     @property
     def unique_id(self):
@@ -109,6 +115,17 @@ class NgenicTune(ClimateEntity):
         """Must be implemented"""
         return [HVAC_MODE_HEAT]
 
+    async def async_will_remove_from_hass(self):
+        """Remove updater when sensor is removed."""
+        if self._updater:
+            self._updater()
+            self._updater = None
+
+    def _setup_updater(self):
+        """Setup a timer that will execute an update every update interval"""
+        # async_track_time_interval returns a function that, when executed, will remove the timer
+        self._updater = async_track_time_interval(self._hass, self._async_update, timedelta(minutes=5))
+
     async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""
         temperature = kwargs.get(ATTR_TEMPERATURE)
@@ -123,8 +140,16 @@ class NgenicTune(ClimateEntity):
         """Fetch new state data from the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
-        current = await self._node.async_measurement(MeasurementType.TEMPERATURE)
-        target_room = await self._tune.async_room(self._room.uuid())
+        try:
+            current = await self._node.async_measurement(MeasurementType.TEMPERATURE)
+            target_room = await self._tune.async_room(self._room.uuid())
+            self._available = True
+        except Exception:
+            # Don't throw an exception if a sensor fails to update.
+            # Instead, make the sensor unavailable.
+            _LOGGER.exception("Failed to update climate '%s'" % self.unique_id)
+            self._available = False
+            return
 
         self._current_temperature = round(current["value"], 1)
         self._target_temperature = round(target_room["targetTemperature"], 1)
