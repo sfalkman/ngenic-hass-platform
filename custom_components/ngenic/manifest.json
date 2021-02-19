@@ -6,6 +6,6 @@
     "dependencies": [],
     "codeowners": ["@sfalkman"],
     "requirements": [
-        "ngenicpy==0.3.2"
+        "ngenicpy==0.3.3"
     ]
 }
