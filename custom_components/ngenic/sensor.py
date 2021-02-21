@@ -138,7 +138,22 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         timedelta(minutes=5),
                         MeasurementType.TEMPERATURE
                     )
-                )            
+                )
+
+            if MeasurementType.CONTROL_VALUE in measurement_types:
+                # append "control" so it doesn't collide with control temperature
+                # this will become "Ngenic controller control temperature"
+                node_name = "%s %s" % (node_name, "control")
+                devices.append(
+                    NgenicTempSensor(
+                        hass,
+                        ngenic,
+                        node,
+                        node_name,
+                        timedelta(minutes=5),
+                        MeasurementType.CONTROL_VALUE
+                    )
+                )
             
             if MeasurementType.HUMIDITY in measurement_types:
                 devices.append(
