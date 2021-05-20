@@ -32,27 +32,39 @@ async def async_setup_entry(hass, entry, async_add_entities):
         # listing tunes contain less information than when querying a single tune
         tune = await ngenic.async_tune(tmp_tune.uuid())
 
-        # get the room whose sensor data and target temperature should be used as inputs to the Tune control system
-        control_room = await tune.async_room(tune["roomToControlUuid"])
-        
-        # get the room node
-        control_node = await tune.async_node(control_room["nodeUuid"])
+        # rooms with control sensors can be found either directly on the tune, or by looking at the activeControl
+        # property on the room object. if roomToControlUuid is set, it takes precedence and the activeControl
+        # attribute will not be used
+        control_room_uuids = []
+        if tune["roomToControlUuid"]:
+            control_room_uuids.append(tune["roomToControlUuid"])
+        else:
+            for room in tune["rooms"]:
+                if room["activeControl"] is True:
+                    control_room_uuids.append(room['uuid'])
 
-        device = NgenicTune(
-            hass,
-            ngenic,
-            tune,
-            control_room,
-            control_node
-        )
+        for control_room_uuid in control_room_uuids:
+            # get the room whose sensor data and target temperature should be used as inputs to the Tune control system
+            control_room = await tune.async_room(control_room_uuid)
 
-        # Initial update
-        await device._async_update()
+            # get the room node
+            control_node = await tune.async_node(control_room["nodeUuid"])
 
-        # Setup update timer
-        device._setup_updater()
-        
-        devices.append(device)
+            device = NgenicTune(
+                hass,
+                ngenic,
+                tune,
+                control_room,
+                control_node
+            )
+
+            # Initial update
+            await device._async_update()
+
+            # Setup update timer
+            device._setup_updater()
+
+            devices.append(device)
 
     async_add_entities(devices)
 
