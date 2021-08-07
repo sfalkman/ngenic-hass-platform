@@ -1,7 +1,7 @@
 {
     "domain": "ngenic",
     "name": "Ngenic Tune",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "config_flow": true,
     "documentation": "https://github.com/sfalkman/ngenic-hass-platform",
     "issue_tracker": "https://github.com/sfalkman/ngenic-hass-platform/issues",

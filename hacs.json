@@ -1,0 +1,5 @@
+{
+  "name": "Ngenic Tune",
+  "iot_class": "Cloud Polling",
+  "homeassistant": "2021.6.0"
+}

@@ -10,10 +10,11 @@ from homeassistant.const import (
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_HUMIDITY,
     DEVICE_CLASS_POWER,
+    DEVICE_CLASS_ENERGY,
     ENERGY_KILO_WATT_HOUR,
     POWER_WATT
 )
-from homeassistant.helpers.entity import Entity
+from homeassistant.components.sensor import STATE_CLASS_MEASUREMENT, SensorEntity
 from homeassistant.helpers.event import async_track_time_interval
 import homeassistant.util.dt as dt_util
 
@@ -221,7 +222,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     # Add entities to hass (and trigger a state update)
     async_add_entities(devices, update_before_add=True)
 
-class NgenicSensor(Entity):
+class NgenicSensor(SensorEntity):
     """Representation of an Ngenic Sensor"""
     
     def __init__(self, hass, ngenic, node, name, update_interval, measurement_type):
@@ -308,22 +309,23 @@ class NgenicSensor(Entity):
 
 class NgenicTempSensor(NgenicSensor):
     device_class = DEVICE_CLASS_TEMPERATURE
+    state_class  = STATE_CLASS_MEASUREMENT
 
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement."""
         return TEMP_CELSIUS
-
 class NgenicHumiditySensor(NgenicSensor):
     device_class = DEVICE_CLASS_HUMIDITY
+    state_class  = STATE_CLASS_MEASUREMENT
 
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement."""
         return "%"
-
 class NgenicPowerSensor(NgenicSensor):
     device_class = DEVICE_CLASS_POWER
+    state_class  = STATE_CLASS_MEASUREMENT
 
     @property
     def unit_of_measurement(self):
@@ -338,12 +340,18 @@ class NgenicPowerSensor(NgenicSensor):
         return round(current*1000.0, 1)
         
 class NgenicEnergySensor(NgenicSensor):
-    device_class = DEVICE_CLASS_POWER
+    device_class = DEVICE_CLASS_ENERGY
+    state_class  = STATE_CLASS_MEASUREMENT
 
     @property
     def unit_of_measurement(self):
         """Return the unit of measurement."""
         return ENERGY_KILO_WATT_HOUR
+
+    @property
+    def last_reset(self):
+        """Return the time when the sensor value was last reset."""
+        return dt_util.start_of_local_day()
 
     async def _async_fetch_measurement(self):
         """Ask for measurements for a duration.
@@ -352,7 +360,7 @@ class NgenicEnergySensor(NgenicSensor):
         from_dt, to_dt = get_from_to_datetime()
         # using datetime will return a list of measurements
         # we'll use the last item in that list
-        current = await get_measurement_value(self._node, measurement_type=self._measurement_type, from_dt=from_dt, to_dt=to_dt, period="P1D")
+        current = await get_measurement_value(self._node, measurement_type=self._measurement_type, from_dt=from_dt, to_dt=to_dt)
         return round(current, 1)
         
     @property
@@ -361,7 +369,7 @@ class NgenicEnergySensor(NgenicSensor):
         return "%s %s" % (self._name, "energy")
 
 class NgenicEnergySensorMonth(NgenicSensor):
-    device_class = DEVICE_CLASS_POWER
+    device_class = DEVICE_CLASS_ENERGY
 
     @property
     def unit_of_measurement(self):
@@ -389,7 +397,7 @@ class NgenicEnergySensorMonth(NgenicSensor):
         return "%s-%s-%s-month" % (self._node.uuid(), self._measurement_type.name, "sensor")
 
 class NgenicEnergySensorLastMonth(NgenicSensor):
-    device_class = DEVICE_CLASS_POWER
+    device_class = DEVICE_CLASS_ENERGY
 
     @property
     def unit_of_measurement(self):

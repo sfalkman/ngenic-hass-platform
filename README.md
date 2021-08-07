@@ -22,10 +22,14 @@ Install HACS and add the repository to the Custom repositories under HACS Settin
 
 * https://hacs.xyz/docs/installation/manual
   * https://hacs.xyz/docs/basic/getting_started
-
 ## Prerequisite
 ### Obtain an API token
 An API token may be obtained from Ngenic here: https://developer.ngenic.se/
 
 ## Configuration
 Configure via UI: Configuration > Integrations
+
+### Home Energy Management
+If you have an [Ngenic Track](https://ngenic.se/track/) you may track your energy consumption in Home Assistant's _Energy Management_.  
+
+There's one thing to consider: if your Track is placed on the energy meter you should add the _Ngenic energy sensor_ as a _Grid consumption_. If your Track is placed on something else (such as district heating meter), you should add the _Ngenic energy sensor_ as an _Individual device_.
