@@ -14,7 +14,7 @@ from homeassistant.const import (
     ENERGY_KILO_WATT_HOUR,
     POWER_WATT
 )
-from homeassistant.components.sensor import STATE_CLASS_MEASUREMENT, SensorEntity
+from homeassistant.components.sensor import STATE_CLASS_MEASUREMENT, STATE_CLASS_TOTAL_INCREASING, SensorEntity
 from homeassistant.helpers.event import async_track_time_interval
 import homeassistant.util.dt as dt_util
 
@@ -341,7 +341,7 @@ class NgenicPowerSensor(NgenicSensor):
         
 class NgenicEnergySensor(NgenicSensor):
     device_class = DEVICE_CLASS_ENERGY
-    state_class  = STATE_CLASS_MEASUREMENT
+    state_class  = STATE_CLASS_TOTAL_INCREASING
 
     @property
     def unit_of_measurement(self):
