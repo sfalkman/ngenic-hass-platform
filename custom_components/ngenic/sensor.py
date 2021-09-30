@@ -348,11 +348,6 @@ class NgenicEnergySensor(NgenicSensor):
         """Return the unit of measurement."""
         return ENERGY_KILO_WATT_HOUR
 
-    @property
-    def last_reset(self):
-        """Return the time when the sensor value was last reset."""
-        return dt_util.start_of_local_day()
-
     async def _async_fetch_measurement(self):
         """Ask for measurements for a duration.
         This requires some further inputs, so we'll override the _async_fetch_measurement method.
