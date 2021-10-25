@@ -30,6 +30,12 @@ An API token may be obtained from Ngenic here: https://developer.ngenic.se/
 Configure via UI: Configuration > Integrations
 
 ### Home Energy Management
-If you have an [Ngenic Track](https://ngenic.se/track/) you may track your energy consumption with [_Energy Management_ in Home Assistant](https://www.home-assistant.io/blog/2021/08/04/home-energy-management/).
+If you have an [Ngenic Track](https://ngenic.se/track/) you may track your energy consumption with ***Energy Management in Home Assistant**.
+
+* https://www.home-assistant.io/docs/energy
+  * https://www.home-assistant.io/docs/energy/electricity-grid/
+  * https://www.home-assistant.io/docs/energy/individual-devices/
+  * https://www.home-assistant.io/docs/energy/faq/
+* https://www.home-assistant.io/blog/2021/08/04/home-energy-management/
 
 There's one thing to consider: if your Ngenic Track is placed on the central electricity meter for your whole house then you should add the _Ngenic energy sensor_ as a _Grid consumption_. However if your Track is placed on something else (such as specific energy meter only connected to your heat pump), you should instead add the _Ngenic energy sensor_ as an _Individual device_.
