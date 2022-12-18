@@ -1,0 +1,14 @@
+set_active_control:
+  name: Set Active Control
+  description: Set whether a room should be taken as an input to temperature regulation 
+  fields:
+    room_uuid:
+      name: room_uuid
+      description: The room uuid
+      selector:
+        text:
+    active:
+      name: active
+      description: Use this room as input to temperature regulation or not
+      selector:
+        boolean:

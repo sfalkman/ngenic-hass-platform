@@ -10,10 +10,12 @@ from homeassistant.const import (
 )
 
 from .config_flow import configured_instances
+from .services import async_register_services
 from .const import (
     DOMAIN,
     DATA_CLIENT,
-    DATA_CONFIG
+    DATA_CONFIG,
+    SERVICE_SET_ACTIVE_CONTROL
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,6 +69,9 @@ async def async_setup_entry(hass, config_entry):
 
     hass.data[DOMAIN][DATA_CLIENT] = ngenic
 
+    # Register Ngenic services
+    async_register_services(hass)
+
     for component in ("sensor", "climate"):
         hass.async_add_job(hass.config_entries.async_forward_entry_setup(config_entry, component))
 
@@ -77,5 +82,6 @@ async def async_unload_entry(hass, config_entry):
         await hass.config_entries.async_forward_entry_unload(config_entry, component)
 
     await hass.data[DOMAIN][DATA_CLIENT].async_close()
+    hass.services.async_remove(DOMAIN, SERVICE_SET_ACTIVE_CONTROL)
 
     return True

@@ -120,6 +120,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
         for node in await tune.async_nodes():
             node_name = "Ngenic %s" % node.get_type().name.lower()
+            node_room = None
 
             if node.get_type() == NodeType.SENSOR:
                 # If this sensor is connected to a room
@@ -127,6 +128,8 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                 for room in rooms:
                     if room["nodeUuid"] == node.uuid():
                         node_name = "%s %s" % (node_name, room["name"])
+                        node_room = room
+                        break
 
             measurement_types = await node.async_measurement_types()
             if MeasurementType.TEMPERATURE in measurement_types:
@@ -134,6 +137,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     NgenicTempSensor(
                         hass,
                         ngenic,
+                        node_room,
                         node,
                         node_name,
                         timedelta(minutes=5),
@@ -149,6 +153,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     NgenicTempSensor(
                         hass,
                         ngenic,
+                        node_room,
                         node,
                         node_name,
                         timedelta(minutes=5),
@@ -161,6 +166,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     NgenicHumiditySensor(
                         hass,
                         ngenic,
+                        node_room,
                         node,
                         node_name,
                         timedelta(minutes=5),
@@ -173,6 +179,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     NgenicPowerSensor(
                         hass,
                         ngenic,
+                        node_room,
                         node,
                         node_name,
                         timedelta(minutes=1),
@@ -185,6 +192,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     NgenicEnergySensor(
                         hass,
                         ngenic,
+                        node_room,
                         node,
                         node_name,
                         timedelta(minutes=10),
@@ -195,6 +203,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     NgenicEnergySensorMonth(
                         hass,
                         ngenic,
+                        node_room,
                         node,
                         node_name,
                         timedelta(minutes=20),
@@ -205,6 +214,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                     NgenicEnergySensorLastMonth(
                         hass,
                         ngenic,
+                        node_room,
                         node,
                         node_name,
                         timedelta(minutes=60),
@@ -225,7 +235,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 class NgenicSensor(SensorEntity):
     """Representation of an Ngenic Sensor"""
     
-    def __init__(self, hass, ngenic, node, name, update_interval, measurement_type):
+    def __init__(self, hass, ngenic, room, node, name, update_interval, measurement_type):
         self._hass = hass
         self._state = None
         self._available = False
@@ -235,6 +245,9 @@ class NgenicSensor(SensorEntity):
         self._update_interval = update_interval
         self._measurement_type = measurement_type
         self._updater = None
+        self._attributes = dict()
+        if room is not None:
+            self._attributes["room_uuid"] = room.uuid()
 
     @property
     def name(self):
@@ -258,6 +271,11 @@ class NgenicSensor(SensorEntity):
     def should_poll(self):
         """An update is pushed when device is updated"""
         return False
+
+    @property
+    def extra_state_attributes(self):
+        """Return entity specific state attributes"""
+        return self._attributes
 
     async def async_will_remove_from_hass(self):
         """Remove updater when sensor is removed."""
