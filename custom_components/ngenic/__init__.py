@@ -6,7 +6,8 @@ import voluptuous as vol
 from homeassistant.config_entries import SOURCE_IMPORT
 from homeassistant.helpers import config_validation as cv
 from homeassistant.const import (
-    CONF_TOKEN
+    CONF_TOKEN,
+    Platform
 )
 
 from .config_flow import configured_instances
@@ -29,11 +30,17 @@ CONFIG_SCHEMA = vol.Schema(
     extra=vol.ALLOW_EXTRA,
 )
 
+NGENIC_PLATFORMS = [
+    Platform.CLIMATE,
+    Platform.SENSOR
+]
+
+
 async def async_setup(hass, config):
     """Setup the Ngenic component"""
     hass.data[DOMAIN] = {}
     hass.data[DOMAIN][DATA_CLIENT] = {}
-    
+
     if DOMAIN not in config:
         return True
 
@@ -41,7 +48,7 @@ async def async_setup(hass, config):
 
     # Store config for use during entry setup
     hass.data[DOMAIN][DATA_CONFIG] = conf
-    
+
     # Check if already configured
     if conf[CONF_TOKEN] in configured_instances(hass):
         return True
@@ -59,6 +66,7 @@ async def async_setup(hass, config):
 
     return True
 
+
 async def async_setup_entry(hass, config_entry):
     from ngenicpy import AsyncNgenic
     ngenic = AsyncNgenic(
@@ -66,15 +74,16 @@ async def async_setup_entry(hass, config_entry):
     )
 
     hass.data[DOMAIN][DATA_CLIENT] = ngenic
-
-    for component in ("sensor", "climate"):
-        hass.async_add_job(hass.config_entries.async_forward_entry_setup(config_entry, component))
+    
+    config_entry.async_create_task(
+        hass, hass.config_entries.async_forward_entry_setups(config_entry, NGENIC_PLATFORMS)
+    )
 
     return True
 
+
 async def async_unload_entry(hass, config_entry):
-    for component in ("sensor", "climate"):
-        await hass.config_entries.async_forward_entry_unload(config_entry, component)
+    await hass.config_entries.async_unload_platforms(config_entry, NGENIC_PLATFORMS)
 
     await hass.data[DOMAIN][DATA_CLIENT].async_close()
 
