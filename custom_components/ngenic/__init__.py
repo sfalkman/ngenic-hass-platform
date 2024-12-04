@@ -74,10 +74,8 @@ async def async_setup_entry(hass, config_entry):
     )
 
     hass.data[DOMAIN][DATA_CLIENT] = ngenic
-    
-    config_entry.async_create_task(
-        hass, hass.config_entries.async_forward_entry_setups(config_entry, NGENIC_PLATFORMS)
-    )
+
+    await hass.config_entries.async_forward_entry_setups(config_entry, NGENIC_PLATFORMS)
 
     return True
 
