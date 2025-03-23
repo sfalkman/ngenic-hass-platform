@@ -1,3 +1,7 @@
+# THIS REPOSITORY IS ARCHIVED
+
+For continued usage of this integration: https://github.com/dotnetdummy/ngenic-hass-platform
+
 # Ngenic Sensor Platform for Home Assistant
 This platform adds sensors for Ngenic Tune smart thermostat, Ngenic temperature sensors, and Ngenic Track nodes. 
 
