@@ -6,11 +6,11 @@ from ngenicpy.models.measurement import MeasurementType
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.components.climate import ClimateEntity
 from homeassistant.components.climate.const import (
-    SUPPORT_TARGET_TEMPERATURE,
-    HVAC_MODE_HEAT
+    ClimateEntityFeature,
+    HVACMode
 )
 from homeassistant.const import (
-    TEMP_CELSIUS, 
+    UnitOfTemperature,
     ATTR_TEMPERATURE
 )
 
@@ -87,7 +87,7 @@ class NgenicTune(ClimateEntity):
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        return SUPPORT_TARGET_TEMPERATURE
+        return ClimateEntityFeature.TARGET_TEMPERATURE
 
     @property
     def name(self):
@@ -105,7 +105,7 @@ class NgenicTune(ClimateEntity):
     @property
     def temperature_unit(self):
         """Return the unit of measurement which this thermostat uses."""
-        return TEMP_CELSIUS
+        return UnitOfTemperature.CELSIUS
 
     @property
     def current_temperature(self):
@@ -120,12 +120,12 @@ class NgenicTune(ClimateEntity):
     @property
     def hvac_mode(self):
         """Must be implemented"""
-        return HVAC_MODE_HEAT
+        return HVACMode.HEAT
 
     @property
     def hvac_modes(self):
         """Must be implemented"""
-        return [HVAC_MODE_HEAT]
+        return [HVACMode.HEAT]
 
     async def async_will_remove_from_hass(self):
         """Remove updater when sensor is removed."""
